@@ -83,3 +83,46 @@ func TestMapNilOverride(t *testing.T) {
 
 	assert.Equal(t, map[int]int(nil), target.Items)
 }
+
+func TestCopyWithinSlices(t *testing.T) {
+	type bax struct {
+		Bax string
+	}
+	type foo struct {
+		Z []bax
+	}
+
+	target := &foo{
+		[]bax{{Bax: "hello"}},
+	}
+	DeepCopyInto(target).SetIgnoreZeroValues(true).From(foo{
+		Z: []bax{{Bax: ""}},
+	})
+
+	assert.Equal(t, "hello", target.Z[0].Bax)
+}
+
+func TestCopyWithinMaps(t *testing.T) {
+	type bax struct {
+		A string
+		B string
+	}
+
+	target := map[string]bax{
+		"hello": {
+			A: "hello",
+		},
+	}
+
+	source := map[string]bax{
+		"hello": {
+			B: "world",
+		},
+	}
+
+	DeepCopyInto(&target).SetIgnoreZeroValues(true).From(&source)
+
+	result := target["hello"]
+	assert.Equal(t, "hello", result.A)
+	assert.Equal(t, "world", result.B)
+}

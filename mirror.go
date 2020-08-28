@@ -79,6 +79,9 @@ func (d *DeepCopy) performDeepCopy(target reflect.Value, src reflect.Value) {
 		length := src.Len()
 		newSlice := reflect.MakeSlice(src.Type(), length, src.Cap())
 		for i := 0; i < length; i++ {
+			// newSlice.Index(i) will be initialized to a zero value. We must first copy the target into it
+			// before copying the source.
+			d.performDeepCopy(newSlice.Index(i), target.Index(i))
 			d.performDeepCopy(newSlice.Index(i), src.Index(i))
 		}
 		target.Set(newSlice)
@@ -92,7 +95,18 @@ func (d *DeepCopy) performDeepCopy(target reflect.Value, src reflect.Value) {
 		newMap := reflect.MakeMapWithSize(src.Type(), src.Len())
 		iter := src.MapRange()
 		for iter.Next() {
-			newMap.SetMapIndex(iter.Key(), iter.Value())
+			// In order to copy the map item properly, we create a new zero value item.
+			// Then, if the target had a value for this key, we copy the target value into this new item.
+			// Finally, we copy the source value and insert it in the new map.
+			newVal := reflect.New(src.Type().Elem()).Elem()
+
+			targetVal := target.MapIndex(iter.Key())
+			if targetVal.IsValid() {
+				d.performDeepCopy(newVal, targetVal)
+			}
+
+			d.performDeepCopy(newVal, iter.Value())
+			newMap.SetMapIndex(iter.Key(), newVal)
 		}
 		target.Set(newMap)
 	case reflect.Struct:
