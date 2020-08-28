@@ -77,11 +77,14 @@ func (d *DeepCopy) performDeepCopy(target reflect.Value, src reflect.Value) {
 			return
 		}
 		length := src.Len()
+		tlength := target.Len()
 		newSlice := reflect.MakeSlice(src.Type(), length, src.Cap())
 		for i := 0; i < length; i++ {
 			// newSlice.Index(i) will be initialized to a zero value. We must first copy the target into it
 			// before copying the source.
-			d.performDeepCopy(newSlice.Index(i), target.Index(i))
+			if i < tlength {
+				d.performDeepCopy(newSlice.Index(i), target.Index(i))
+			}
 			d.performDeepCopy(newSlice.Index(i), src.Index(i))
 		}
 		target.Set(newSlice)
