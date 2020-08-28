@@ -126,3 +126,56 @@ func TestCopyWithinMaps(t *testing.T) {
 	assert.Equal(t, "hello", result.A)
 	assert.Equal(t, "world", result.B)
 }
+
+func TestPrivateFieldsInSlice(t *testing.T) {
+
+	type Quantity struct {
+		// i is the quantity in int64 scaled form, if d.Dec == nil
+		i int64
+		// d is the quantity in inf.Dec form if d.Dec != nil
+		d int64
+		// s is the generated value of this quantity to avoid recalculation
+		s string
+
+		// Change Format at will. See the comment for Canonicalize for
+		// more details.
+
+	}
+
+	target := []Quantity{}
+	source := []Quantity{
+		{
+			i: 3,
+			d: 10,
+			s: "hello",
+		},
+	}
+
+	DeepCopyInto(&target).From(source)
+
+	assert.Equal(t, int64(3), target[0].i)
+	assert.Equal(t, int64(10), target[0].d)
+}
+
+func TestPrivateFieldsInMap(t *testing.T) {
+
+	type Quantity struct {
+		i int64
+		d int64
+		s string
+	}
+
+	target := map[string]Quantity{}
+	source := map[string]Quantity{
+		"hello": {
+			i: 3,
+			d: 10,
+			s: "hello",
+		},
+	}
+
+	DeepCopyInto(&target).From(source)
+
+	assert.Equal(t, int64(3), target["hello"].i)
+	assert.Equal(t, int64(10), target["hello"].d)
+}

@@ -62,6 +62,9 @@ func (d *DeepCopy) From(src interface{}) {
 }
 
 func (d *DeepCopy) performDeepCopy(target reflect.Value, src reflect.Value) {
+	// fmt.Println("target", target.Type(), target, target.CanSet(), target.CanAddr())
+	// fmt.Println("source", src.Type(), src)
+
 	switch src.Kind() {
 	case reflect.Invalid:
 	case reflect.Array:
@@ -102,13 +105,16 @@ func (d *DeepCopy) performDeepCopy(target reflect.Value, src reflect.Value) {
 			// Then, if the target had a value for this key, we copy the target value into this new item.
 			// Finally, we copy the source value and insert it in the new map.
 			newVal := reflect.New(src.Type().Elem()).Elem()
+			targetVal := makeAddressable(target.MapIndex(iter.Key()))
+			srcVal := makeAddressable(iter.Value())
 
-			targetVal := target.MapIndex(iter.Key())
 			if targetVal.IsValid() {
+				// Value must be addressable in order to unexport the field, so we put the value in a pointer.
 				d.performDeepCopy(newVal, targetVal)
 			}
+			// Value must be addressable in order to unexport the field, so we put the value in a pointer.
+			d.performDeepCopy(newVal, srcVal)
 
-			d.performDeepCopy(newVal, iter.Value())
 			newMap.SetMapIndex(iter.Key(), newVal)
 		}
 		target.Set(newMap)
@@ -118,13 +124,11 @@ func (d *DeepCopy) performDeepCopy(target reflect.Value, src reflect.Value) {
 			tfield := target.Field(i)
 			sfield := src.Field(i)
 
-			isUnexported := sfield.CanAddr() && !sfield.CanSet()
-			if isUnexported && d.ignoreUnexported {
-				continue
+			if tfield.CanAddr() && !tfield.CanSet() {
+				tfield = exportUnexportedField(tfield)
 			}
 
-			if isUnexported {
-				tfield = exportUnexportedField(tfield)
+			if sfield.CanAddr() && !sfield.CanSet() {
 				sfield = exportUnexportedField(sfield)
 			}
 
@@ -137,10 +141,22 @@ func (d *DeepCopy) performDeepCopy(target reflect.Value, src reflect.Value) {
 		}
 		d.performDeepCopy(target.Elem(), src.Elem())
 	default:
-		if target.CanSet() && !(d.ignoreZeroValues && src.IsZero()) {
+		// Should always be settable.
+		if !(d.ignoreZeroValues && src.IsZero()) {
 			target.Set(src)
 		}
 	}
+}
+
+// makeAddressable will make a value addressible if it is not by creating a pointer and copying the value into
+// the pointer. This will not permit mutating the value.
+func makeAddressable(v reflect.Value) reflect.Value {
+	if v.IsValid() && !v.CanAddr() {
+		temp := reflect.New(v.Type()).Elem()
+		temp.Set(v)
+		return temp
+	}
+	return v
 }
 
 func exportUnexportedField(field reflect.Value) reflect.Value {
