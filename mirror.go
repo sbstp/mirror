@@ -70,6 +70,12 @@ func (d *DeepCopy) performDeepCopy(target reflect.Value, src reflect.Value) {
 			d.performDeepCopy(target.Index(i), src.Index(i))
 		}
 	case reflect.Slice:
+		if src.IsNil() {
+			if !d.ignoreZeroValues {
+				target.Set(reflect.Zero(src.Type()))
+			}
+			return
+		}
 		length := src.Len()
 		newSlice := reflect.MakeSlice(src.Type(), length, src.Cap())
 		for i := 0; i < length; i++ {
@@ -77,6 +83,12 @@ func (d *DeepCopy) performDeepCopy(target reflect.Value, src reflect.Value) {
 		}
 		target.Set(newSlice)
 	case reflect.Map:
+		if src.IsNil() {
+			if !d.ignoreZeroValues {
+				target.Set(reflect.Zero(src.Type()))
+			}
+			return
+		}
 		newMap := reflect.MakeMapWithSize(src.Type(), src.Len())
 		iter := src.MapRange()
 		for iter.Next() {
